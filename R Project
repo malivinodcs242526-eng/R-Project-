@@ -1,0 +1,156 @@
+# CAPSTONE PROJECT
+# Load Required Packages
+required_packages <- c("ggplot2","caret","randomForest","e1071","nnet")
+
+for(pkg in required_packages){
+  if(!require(pkg, character.only = TRUE)){
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+set.seed(123)
+
+# PART 1: DESCRIPTIVE STATISTICAL ANALYSIS
+
+Error_Type <- c("Syntax Errors","Semantic Errors","Logical Errors")
+Frequency <- c(30,28,42)
+
+data_desc <- data.frame(Error_Type,Frequency)
+data_desc$Percentage <- (data_desc$Frequency /
+                           sum(data_desc$Frequency))*100
+
+cat("=== DESCRIPTIVE DATA TABLE ===\n")
+print(data_desc)
+
+cat("\nTotal Errors:", sum(data_desc$Frequency))
+cat("\nMean Errors:", mean(data_desc$Frequency))
+cat("\nStandard Deviation:", sd(data_desc$Frequency),"\n")
+
+
+# BAR PLOT
+barplot(data_desc$Frequency,
+        names.arg = data_desc$Error_Type,
+        col = c("steelblue","orange","forestgreen"),
+        main = "Programming Error Distribution",
+        ylab = "Frequency")
+
+# PIE CHART
+
+pie(data_desc$Frequency,
+    labels = paste(data_desc$Error_Type,
+                   round(data_desc$Percentage,2),"%"),
+    col = c("steelblue","orange","forestgreen"),
+    main = "Programming Error Percentage")
+
+# CHI-SQUARE TEST
+
+cat("\n=== Chi-Square Test ===\n")
+print(chisq.test(data_desc$Frequency))
+
+# ggplot Visualization
+
+ggplot(data_desc,
+       aes(x=Error_Type,y=Frequency,fill=Error_Type)) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  ggtitle("Programming Error Distribution (ggplot)")
+
+# Export CSV
+
+write.csv(data_desc,
+          "Programming_Error_Descriptive.csv",
+          row.names = FALSE)
+
+# PART 2: MACHINE LEARNING MODEL
+
+n <- 300
+
+Practice_Hours <- rnorm(n, mean=8, sd=3)
+Compiler_Exposure <- rnorm(n, mean=15, sd=5)
+Concept_Score <- rnorm(n, mean=65, sd=10)
+Debug_Time <- rnorm(n, mean=25, sd=8)
+
+Experience_Level <- sample(c("Beginner","Intermediate"),
+                           n, replace=TRUE)
+
+# Target Variable
+
+Error_Type <- ifelse(Concept_Score < 60 &
+                       Debug_Time > 25,
+                     "Logical",
+                     ifelse(Compiler_Exposure < 12,
+                            "Syntax",
+                            "Semantic"))
+
+data_ml <- data.frame(
+  Practice_Hours,
+  Compiler_Exposure,
+  Concept_Score,
+  Debug_Time,
+  Experience_Level,
+  Error_Type
+)
+
+# Convert to factor
+data_ml$Error_Type <- as.factor(data_ml$Error_Type)
+data_ml$Experience_Level <- as.factor(data_ml$Experience_Level)
+
+# Train Test Split
+
+trainIndex <- createDataPartition(data_ml$Error_Type,
+                                  p=0.8,
+                                  list=FALSE)
+
+trainData <- data_ml[trainIndex,]
+testData <- data_ml[-trainIndex,]
+
+# RANDOM FOREST MODEL
+
+rf_model <- randomForest(Error_Type ~ .,
+                         data=trainData,
+                         ntree=200)
+
+rf_pred <- predict(rf_model, testData)
+
+cat("\n=== Random Forest Results ===\n")
+print(confusionMatrix(rf_pred, testData$Error_Type))
+
+# Feature Importance
+
+print(importance(rf_model))
+varImpPlot(rf_model)
+
+
+# SUPPORT VECTOR MACH
+
+svm_model <- svm(Error_Type ~ ., data=trainData)
+
+svm_pred <- predict(svm_model, testData)
+
+cat("\n=== SVM Results ===\n")
+print(confusionMatrix(svm_pred, testData$Error_Type))
+
+# MULTINOMIAL LOGISTIC REGRESSION
+
+multi_model <- multinom(Error_Type ~ .,
+                        data=trainData,
+                        trace=FALSE)
+
+multi_pred <- predict(multi_model, testData)
+
+cat("\n=== Logistic Regression Results ===\n")
+print(confusionMatrix(multi_pred, testData$Error_Type))
+
+# ACCURACY CALCULATION
+
+accuracy <- sum(rf_pred == testData$Error_Type) /
+  nrow(testData)
+
+cat("\nFinal Random Forest Accuracy:", accuracy)
+
+# Export Machine Learning Dataset
+
+write.csv(data_ml,
+          "Programming_Error_ML_Dataset.csv",
+          row.names = FALSE)
